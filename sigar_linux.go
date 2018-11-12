@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+ 
 )
 
 func init() {
@@ -130,4 +131,120 @@ func (self *Mem) Get() error {
 	self.ActualUsed = self.Total - self.ActualFree
 
 	return nil
+}
+
+func (self *CpuInfoList) Get() error {
+       // We'll need to read in the /proc/cpuinfo file but because it lists all the cpu details inline we'll need to keep a running 'tally' 
+       capacity := len(self.List)
+       if capacity == 0 {
+	 capacity = 4
+       }
+       list := make([]CpuInfo, 0, capacity)
+       var ci CpuInfo
+       var hasProc bool
+
+       err := readFile(Procd+"/cpuinfo", func(line string) bool {
+	 fields := strings.SplitN(line, ":", 2)
+	 if len(fields) == 2 {
+	     key := strings.TrimSpace(fields[0])
+	     value := strings.TrimSpace(fields[1])
+	     switch key {
+	         case "processor":
+	             // Processor line that we use to set the procid and then make the CpuList object
+		     if hasProc == false {
+		       hasProc = true
+		     } else {
+		       list = append(list, ci)
+		     }
+
+	             ci.Processor, _ = strconv.ParseInt(value, 10, 8)
+		   case "vendor_id":
+		     ci.VendorID = value
+		   case "cpu family":
+		     ci.CPUFamily, _ = strconv.ParseInt(value, 10, 8)
+		   case "model":
+		     ci.Model, _ = strconv.ParseInt(value, 10, 8)
+		   case "model name":
+		     ci.ModelName = value
+		   case "stepping":
+		     ci.Stepping,_ = strconv.ParseInt(value, 10, 8)
+		   case "microcode":
+		     ci.Microcode = value
+		   case "cpu MHz":
+		     ci.CPUMHz, _ = strconv.ParseFloat(value, 64)
+		   case "cache size":
+		     if cs, err := strconv.ParseInt(strings.TrimSuffix(value, " KB"), 10, 16); err == nil {
+		         ci.CacheSize = cs
+		     } else {
+		       // Shouldn't happen, but.......
+		       ci.CacheSize = 0
+		     }
+		   case "physical id":
+		     ci.PhysicalID, _ = strconv.ParseInt(value, 10, 8)
+		   case "siblings":
+		     ci.Siblings, _ = strconv.ParseInt(value, 10, 8)
+		   case "core id":
+		     ci.CoreID, _ = strconv.ParseInt(value, 10, 8)
+		   case "cpu cores":
+		     ci.CPUCores, _ = strconv.ParseInt(value, 10, 8)
+		   case "apicid":
+		     ci.Apicid, _ = strconv.ParseInt(value, 10, 8)
+		   case "initial apicid":
+		     ci.InitialApicid, _ = strconv.ParseInt(value, 10, 8)
+		   case "fpu":
+		     if value  == "yes" {
+		       ci.Fpu = true
+		     } else {
+		       ci.Fpu = false
+		     }
+		   case "fpu_exception":
+                     if value  == "yes" {
+                       ci.FpuException = true
+                     } else {
+                       ci.FpuException = false
+                     }
+		   case "cpuid level":
+		     ci.CPUIDLevel, _ = strconv.ParseInt(value, 10, 8)
+		   case "wp":
+                     if value  == "yes" {
+                       ci.Wp = true
+                     } else {
+                       ci.Wp = false
+                     }
+		   case "flags":
+		     ci.Flags = strings.Fields(value)
+		   case "bugs":
+		     ci.Bugs = strings.Fields(value)
+		   case "bogomips":
+		     ci.Bogomips, _ = strconv.ParseFloat(value, 64)
+		   case "clflush size":
+		     ci.ClFlushSize, _ = strconv.ParseInt(value, 10, 8)
+		   case "cache_alignment":
+		     ci.CacheAlignment, _ = strconv.ParseInt(value, 10, 8)
+		   case "address sizes":
+	             sizes := []int64{0,0}
+	             bits := strings.Split(value, ", ")
+	             if bp, err := strconv.ParseInt(strings.TrimSuffix(bits[0], " bits physical"), 10, 16); err == nil {
+	                 sizes[0] = bp
+	             }
+	             if bv, err := strconv.ParseInt(strings.TrimSuffix(bits[1], " bits virtual"), 10, 16); err == nil {
+	                 sizes[1] = bv
+	             }
+		     ci.AddressSizes = sizes
+		   case "power management":
+		     ci.PowerManagement = strings.Fields(value)
+		   default:
+		 }
+            }
+	    return true
+        })
+	// This catches the last processor's lines (if any)
+	if hasProc == false {
+            hasProc = true
+        } else {
+            list = append(list, ci)
+        }
+	self.List = list
+
+	return err
 }

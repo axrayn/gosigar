@@ -43,6 +43,35 @@ type Cpu struct {
 	Stolen  uint64
 }
 
+type CpuInfo struct {
+        Processor       int64
+	VendorID        string
+	CPUFamily       int64
+	Model           int64
+	ModelName       string
+	Stepping        int64
+	Microcode       string
+	CPUMHz          float64
+	CacheSize       int64
+	PhysicalID      int64
+	Siblings        int64
+	CoreID          int64
+	CPUCores        int64
+	Apicid          int64
+	InitialApicid   int64
+	Fpu             bool
+	FpuException    bool
+	CPUIDLevel      int64
+	Wp              bool
+	Flags           []string
+	Bugs            []string
+	Bogomips        float64
+	ClFlushSize     int64
+	CacheAlignment  int64
+	AddressSizes    []int64
+	PowerManagement []string
+}
+
 func (cpu *Cpu) Total() uint64 {
 	return cpu.User + cpu.Nice + cpu.Sys + cpu.Idle +
 		cpu.Wait + cpu.Irq + cpu.SoftIrq + cpu.Stolen
@@ -94,6 +123,10 @@ type HugeTLBPages struct {
 
 type CpuList struct {
 	List []Cpu
+}
+
+type CpuInfoList struct {
+        List []CpuInfo
 }
 
 type FDUsage struct {
